@@ -3,7 +3,13 @@ import { ArrowRight } from 'lucide-react';
 import { Step4Props } from '../../../types';
 import { createBooking, getTimezone } from '../../../services/calApi';
 
-const toEventDate = (fullDate: string, timeLabel: string) => {
+const getTimezoneOffsetMinutes = (timeZone: string, date: Date) => {
+  const local = new Date(date.toLocaleString('en-US', { timeZone }));
+  const utc = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+  return (local.getTime() - utc.getTime()) / 60000;
+};
+
+const toEventDate = (fullDate: string, timeLabel: string, timeZone: string) => {
   const [time, meridiem] = timeLabel.split(' ');
   const [hourStr, minuteStr] = time.split(':');
   let hour = parseInt(hourStr, 10);
@@ -12,9 +18,10 @@ const toEventDate = (fullDate: string, timeLabel: string) => {
   if (meridiem?.toUpperCase() === 'PM' && hour !== 12) hour += 12;
   if (meridiem?.toUpperCase() === 'AM' && hour === 12) hour = 0;
 
-  const date = new Date(fullDate);
-  date.setHours(hour, minute, 0, 0);
-  return date;
+  const [year, month, day] = fullDate.split('-').map(Number);
+  const utcDate = new Date(Date.UTC(year, (month || 1) - 1, day || 1, hour, minute, 0, 0));
+  const offsetMinutes = getTimezoneOffsetMinutes(timeZone, utcDate);
+  return new Date(utcDate.getTime() - offsetMinutes * 60000);
 };
 
 const Step4Details: React.FC<Step4Props> = ({
@@ -32,9 +39,10 @@ const Step4Details: React.FC<Step4Props> = ({
 
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime || !email.includes('@')) return;
+    const timezone = getTimezone();
     setIsSubmitting(true);
     try {
-      const start = toEventDate(selectedDate.fullDate, selectedTime);
+      const start = toEventDate(selectedDate.fullDate, selectedTime, timezone);
       const end = new Date(start);
       end.setMinutes(end.getMinutes() + 45);
 
@@ -42,7 +50,7 @@ const Step4Details: React.FC<Step4Props> = ({
         eventTypeId: '',
         start: start.toISOString(),
         end: end.toISOString(),
-        timezone: getTimezone(),
+        timezone,
         attendees: [
           {
             name,

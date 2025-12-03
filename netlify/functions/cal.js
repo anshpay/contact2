@@ -20,6 +20,24 @@ const jsonResponse = (statusCode, body) => ({
   body: JSON.stringify(body),
 });
 
+const getTimezoneOffsetMinutes = (timeZone, date) => {
+  const local = new Date(date.toLocaleString('en-US', { timeZone }));
+  const utc = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+  return (local.getTime() - utc.getTime()) / 60000;
+};
+
+const buildRangeForDate = (dateString, timeZone) => {
+  const [year, month, day] = (dateString || '').split('-').map((v) => parseInt(v, 10));
+  if (!year || !month || !day) return null;
+
+  const baseUtcStart = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  const offsetMinutes = getTimezoneOffsetMinutes(timeZone, baseUtcStart);
+  const start = new Date(baseUtcStart.getTime() - offsetMinutes * 60000);
+  const end = new Date(start);
+  end.setHours(end.getHours() + 23, end.getMinutes() + 59, 59, 999);
+  return { start, end };
+};
+
 const formatSlots = (slots = []) =>
   slots
     .map((slot) => slot?.start)
@@ -45,10 +63,11 @@ exports.handler = async (event) => {
     if (!date) return jsonResponse(400, { error: 'date is required' });
 
     try {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setHours(23, 59, 59, 999);
+      const range = buildRangeForDate(date, DEFAULT_TIMEZONE);
+      if (!range) {
+        return jsonResponse(400, { error: 'Invalid date format. Use YYYY-MM-DD.' });
+      }
+      const { start, end } = range;
 
       const params = new URLSearchParams({
         eventTypeId: EVENT_TYPE_ID,

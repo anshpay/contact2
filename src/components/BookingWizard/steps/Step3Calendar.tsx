@@ -3,7 +3,7 @@ import { ArrowRight, Loader2 } from 'lucide-react';
 import { DateOption, Step3Props } from '../../../types';
 import { getAvailableSlots } from '../../../services/calApi';
 
-const getNextDays = (days: number = 5): DateOption[] => {
+const getNextDays = (days: number = 14): DateOption[] => {
   const dates: DateOption[] = [];
   const today = new Date();
 
@@ -12,10 +12,10 @@ const getNextDays = (days: number = 5): DateOption[] => {
     nextDate.setDate(today.getDate() + i);
 
     dates.push({
-      fullDate: nextDate.toISOString(),
+      fullDate: nextDate.toISOString().split('T')[0], // YYYY-MM-DD to avoid timezone drift
       day: nextDate.toLocaleDateString('en-US', { weekday: 'short' }),
       date: nextDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
-      available: nextDate.getDay() !== 0 && nextDate.getDay() !== 6,
+      available: true, // fetch real availability from API; don't pre-block weekends
     });
   }
   return dates;
@@ -42,7 +42,7 @@ const Step3Calendar: React.FC<Step3Props> = ({
   useEffect(() => {
     let isMounted = true;
     const loadSlots = async () => {
-      if (selectedDate && selectedDate.available) {
+      if (selectedDate) {
         setIsLoadingSlots(true);
         setSelectedTime(null);
         try {
